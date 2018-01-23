@@ -270,7 +270,7 @@ class BasePortfolio(object, metaclass=ABCMeta):
         return value / price
 
     @property
-    def weights(self, val_type="adj_close"):
+    def weights(self):
         portfolio_values = self.portfolio_values
         weights = {}
         for key in portfolio_values.keys():
@@ -278,11 +278,19 @@ class BasePortfolio(object, metaclass=ABCMeta):
         return weights
 
     @property
+    def weights_val(self):
+        weights = self.weights
+        weights_val = [weights["cash"]]
+        for symbol in self.symbols:
+            weights_val.append(weights[symbol])
+        return np.array(weights_val)
+
+    @property
     def portfolio_values(self):
         portfolio_values = {}
+        portfolio_values['cash'] = self.current_holdings['cash']
         for symbol in self.symbols:
             portfolio_values[symbol] = self.current_holdings[symbol]
-        portfolio_values['cash'] = self.current_holdings['cash']
         return portfolio_values
 
     @property

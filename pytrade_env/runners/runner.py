@@ -1,6 +1,3 @@
-from copy import deepcopy
-import numpy as np
-
 from .core import BaseRunner
 from ..data_handlers import HistoricSQLDataHandler
 from ..executions import SimulatedExecutionHandler
