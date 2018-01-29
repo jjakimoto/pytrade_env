@@ -17,32 +17,32 @@ class AgentWrapper(Strategy):
         self.prev_actions = np.zeros(shape=self.agent.action_shape)
         self.prev_actions[0] = 1.
         self.num_epochs = num_epochs
+        self.current_actions = deepcopy(self.agent.get_recent_actions())
+        self.prev_actions = deepcopy(self.current_actions)
 
     def calculate_signals(self, event, *args, **kwargs):
+        # Update tmodel before predicting actions
+        self._update_agent()
         if event.type == 'MARKET':
-            state = self.agent.get_recent_state()
-            # recent_actions = self.agent.get_recent_actions()
-            actions = self.agent.predict(state, self.prev_actions)
+            recent_state = self.agent.get_recent_state()
+            recent_actions = self.agent.get_recent_actions()
+            actions = self.agent.predict(recent_state, recent_actions)
+            # Update actions
+            self.prev_actions = deepcopy(self.current_actions)
             self.current_actions = deepcopy(actions)
-            trade_amount = actions - self.prev_actions
             dt = datetime.datetime.utcnow()
             for i, symbol in enumerate(self.symbols):
                 # bar_date = self.bars.get_latest_bar_datetime(s)
                 # Index 0 is cash
-                val = trade_amount[i + 1]
+                val = actions[i + 1]
+                # Update signal_dir at portfolio
                 sig_dir = ""
-                if val < 0:
-                    sig_dir = 'SHORT'
-                elif val > 0:
-                    sig_dir = 'LONG'
-                else:
-                    continue
                 val = np.abs(val)
                 signal = SignalEvent(self.strategy_id,
                                      symbol, dt, sig_dir, val)
                 self.events.put(signal)
 
-    def update_strategy(self):
+    def _update_agent(self):
         current_bars = self.bars.get_current_bars()
         if self.prev_bars is None:
             self.prev_bars = deepcopy(current_bars)

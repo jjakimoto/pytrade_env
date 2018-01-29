@@ -1,3 +1,6 @@
+from copy import deepcopy
+
+
 import os
 
 from pytrade_env.runners import Runner
@@ -7,14 +10,15 @@ class TestRunner(Runner):
     weights_list = []
 
     def _update_strategy(self):
-        self.strategy.update_strategy()
-        self.weights.append(self.portfolio.weights)
+        self.weights_list.append(deepcopy(self.portfolio.weights_val))
+        super()._update_strategy()
 
 
 class Context:
     price_keys = ['open', 'high', 'low']
     volume_keys = ['volume', 'quoteVolume']
     initial_capital = 1.0
+    commission_rate = None
 
 
 def backtest(start, end, strategy, portfolio_cls):

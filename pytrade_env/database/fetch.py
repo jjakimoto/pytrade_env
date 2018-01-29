@@ -17,7 +17,7 @@ def fetch_data(start, end, tickers):
     session = DBSession()
     start = date2datetime(start)
     end = date2datetime(end)
-    base_query = session.query(Price30M).filter(Price30M.date >= start).filter(Price30M.date <= end)
+    base_query = session.query(Price30M).filter(Price30M.date > start).filter(Price30M.date <= end)
     data = {}
     for ticker in tickers:
         x = base_query.filter(Price30M.ticker == ticker).all()

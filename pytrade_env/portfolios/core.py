@@ -7,6 +7,7 @@ except ImportError:
 import numpy as np
 import pandas as pd
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 
 from ..events import OrderEvent
 from ..utils import create_sharpe_ratio, create_drawdowns
@@ -120,13 +121,14 @@ class BasePortfolio(object, metaclass=ABCMeta):
         dh['commission'] = self.current_holdings['commission']
         dh['total'] = self.current_holdings['cash']
 
-        for s in self.symbols:
+        for symbol in self.symbols:
             # Approximation to the real value
-            market_value = self.current_positions[s] * \
-                self.bars.get_latest_market_value(s)
-            dh[s] = market_value
+            market_value = self.current_positions[symbol] * \
+                self.bars.get_latest_market_value(symbol)
+            dh[symbol] = market_value
             dh['total'] += market_value
 
+        self.current_holdings = deepcopy(dh)
         # Append the current holdings
         self.all_holdings.append(dh)
 
@@ -191,10 +193,14 @@ class BasePortfolio(object, metaclass=ABCMeta):
         signal - The tuple containing Signal information.
         """
         order = None
-
         symbol = signal.symbol
-        direction = signal.signal_type
         mkt_quantity = self.get_quantity(symbol, signal.value)
+        if mkt_quantity >= 0:
+            signal.signal_type = 'LONG'
+        else:
+            signal.signal_type = 'SHORT'
+        mkt_quantity = np.abs(mkt_quantity)
+        direction = signal.signal_type
         cur_quantity = self.current_positions[symbol]
         order_type = 'MKT'
         if direction == 'LONG':
@@ -264,15 +270,11 @@ class BasePortfolio(object, metaclass=ABCMeta):
                  "Drawdown Duration": dd_duration}
         return stats
 
-    def get_quantity(self, symbol, value, val_type="adj_close"):
-        """Transform value into #stock unit"""
-        price = self.bars.get_latest_bar_value(symbol, val_type)
-        return value / price
-
     @property
     def weights(self):
         portfolio_values = self.portfolio_values
         weights = {}
+        weights["cash"] = portfolio_values['cash'] / self.asset_size
         for key in portfolio_values.keys():
             weights[key] = portfolio_values[key] / self.asset_size
         return weights
@@ -295,7 +297,7 @@ class BasePortfolio(object, metaclass=ABCMeta):
 
     @property
     def asset_size(self):
-        return self.current_holdings['total']
+        return np.sum(list(self.portfolio_values.values()))
 
     @abstractmethod
     def get_quantity(self, symbol, value):

@@ -13,8 +13,8 @@ class Runner(BaseRunner):
                          execution_handler_cls, portfolio_cls)
 
     def _calc_market(self, event):
-        self.strategy.calculate_signals(event)
         self.portfolio.update_timeindex(event)
+        self.strategy.calculate_signals(event)
 
     def _calc_signal(self, event):
         self.portfolio.update_signal(event)
@@ -24,7 +24,6 @@ class Runner(BaseRunner):
 
     def _calc_fill(self, event):
         self.portfolio.update_fill(event)
-        self.strategy.update_fill(event)
 
     def _update_strategy(self):
         self.strategy.update_strategy()

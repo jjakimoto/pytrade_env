@@ -7,7 +7,7 @@ from collections import defaultdict
 from .core import DataHandler
 from ..events import MarketEvent
 from ..database.fetch import fetch_data
-from ..utils import date2datetime
+from ..utils import date2datetime, datetime2date, get_time_now
 
 
 class HistoricSQLDataHandler(DataHandler):
@@ -38,7 +38,7 @@ class HistoricSQLDataHandler(DataHandler):
         self.market_value_key = self.price_keys[0]
         self.volume_keys = volume_keys
         self.latest_symbol_data = defaultdict(lambda: [])
-        self.continue_backtest = True
+        self.continue_trading = True
 
     def set_trange(self, start, end):
         data = fetch_data(start, end, self.symbols)
@@ -60,9 +60,9 @@ class HistoricSQLDataHandler(DataHandler):
 
         # Redefine time range within allowed time index
         start = date2datetime(start)
-        self.start = max(start, self.allow_time_index[0])
+        self.start = str(max(start, self.allow_time_index[0]))
         end = date2datetime(end)
-        self.end = min(end, self.allow_time_index[-1])
+        self.end = str(min(end, self.allow_time_index[-1]))
 
         print('start:', self.start)
         print('end:', self.end)
@@ -193,7 +193,7 @@ class HistoricSQLDataHandler(DataHandler):
             else:
                 raise NotImplementedError("No implementation for val_type={}".format(val_type))
 
-    def update_bars(self):
+    def update_bars(self, is_initial=False):
         """
         Pushes the latest bar to the latest_symbol_data structure
         for all symbols in the symbol list.
@@ -202,12 +202,78 @@ class HistoricSQLDataHandler(DataHandler):
             try:
                 bar = self._get_new_bar(s)
             except StopIteration:
-                self.continue_backtest = False
+                self.continue_trading = False
                 bar = None
             else:
                 if bar is not None:
                     self.latest_symbol_data[s].append(bar)
-        self.events.put(MarketEvent())
+        if not is_initial:
+            self.events.put(MarketEvent())
+
+    def update_data(self):
+        new_end = get_time_now()
+        # _end = datetime2date(self.end)
+        data = fetch_data(self.end, new_end, self.symbols)
+        if not data:
+            return None
+        # Build imputed data with columns key
+        _col_data = defaultdict(lambda: [])
+        for symbol, val in data.items():
+            df = pd.DataFrame(val.values,
+                              index=val.index, columns=val.columns)
+            df = df.loc[~df.index.duplicated(keep='first')]
+            for col in val.columns:
+                _col_data[col].append(df[col])
+        for col in _col_data.keys():
+            df = pd.concat(_col_data[col], axis=1, keys=self.symbols)
+            df.interpolate(method='linear',
+                           limit_direction='both',
+                           inplace=True)
+            self.col_data[col] = self.col_data[col].append(df)
+        self.df = df
+        self.allow_time_index = self.allow_time_index.append(df.index)
+
+        # Redefine time range within allowed time index
+        new_end = date2datetime(new_end)
+        self.end = str(min(new_end, self.allow_time_index[-1]))
+
+        print('start:', self.start)
+        print('end:', self.end)
+
+        # Store imputed data with symbol keys
+        price_data = {}
+        price_data_val = []
+        for symbol in self.symbols:
+            val = []
+            for col in self.price_keys:
+                df = self.col_data[col][[symbol]]
+                val.append(df.values)
+            self.time_index = df.index
+            val = np.concatenate(val, axis=1)
+            price_data_val.append(np.expand_dims(val, 1))
+            price_data[symbol] = pd.DataFrame(val, columns=self.price_keys,
+                                              index=self.time_index)
+
+        # Store imputed data with symbol keys
+        volume_data = {}
+        volume_data_val = []
+        for symbol in self.symbols:
+            val = []
+            for col in self.volume_keys:
+                df = self.col_data[col][[symbol]]
+                val.append(df.values)
+            self.time_index = df.index
+            val = np.concatenate(val, axis=1)
+            volume_data_val.append(np.expand_dims(val, 1))
+            volume_data[symbol] = pd.DataFrame(val, columns=self.volume_keys,
+                                               index=self.time_index)
+
+        self.price_data = price_data
+        self.price_data_val = np.concatenate(price_data_val, axis=1)
+        self.volume_data = volume_data
+        self.volume_data_val = np.concatenate(volume_data_val, axis=1)
+        self.max_idx = len(self.time_index) - 1
+        self.continue_trading = True
 
     def get_latest_market_value(self, symbol):
         return self.get_latest_bar_value(symbol, self.market_value_key)
@@ -232,4 +298,23 @@ class HistoricSQLDataHandler(DataHandler):
     def get_current_bars(self):
         price = self._get_current_price_array()
         volume = self._get_current_volume_array()
+        return dict(price=price, volume=volume)
+
+    def _get_prev_price_array(self):
+        prev_prices = []
+        for symbol in self.symbols:
+            price = self.get_latest_bars(symbol, 2)[0]['price'].values
+            prev_prices.append(price)
+        return np.array(prev_prices)
+
+    def _get_prev_volume_array(self):
+        prev_volumes = []
+        for symbol in self.symbols:
+            volume = self.get_latest_bars(symbol, 2)[0]['volume'].values
+            prev_volumes.append(volume)
+        return np.array(prev_volumes)
+
+    def get_prev_bars(self):
+        price = self._get_prev_price_array()
+        volume = self._get_prev_volume_array()
         return dict(price=price, volume=volume)

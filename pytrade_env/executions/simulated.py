@@ -31,7 +31,7 @@ class SimulatedExecutionHandler(ExecutionHandler):
         """
         self.events = events
 
-    def execute_order(self, event, commission=None):
+    def execute_order(self, event, commission=0):
         """
         Simply converts Order objects into Fill objects naively,
         i.e. without any latency, slippage or fill ratio problems.

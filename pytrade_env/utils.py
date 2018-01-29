@@ -9,6 +9,13 @@ from time import mktime
 from copy import deepcopy
 
 
+def datetime2date(datetime_obj):
+    str_time = '%04d-%02d-%02d %02d:%02d:%02d'
+    return str_time % (datetime_obj.tm_year, datetime_obj.tm_mon,
+                       datetime_obj.tm_mday, datetime_obj.tm_hour,
+                       datetime_obj.tm_min, datetime_obj.tm_sec)
+
+
 def date2seconds(str_time):
     datetime_obj = datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
     seconds = time.mktime(datetime_obj.timetuple())
@@ -17,9 +24,7 @@ def date2seconds(str_time):
 
 def seconds2date(seconds):
     date_obj = time.localtime(seconds)
-    str_time = '%04d-%02d-%02d %02d:%02d:%02d'
-    return str_time % (date_obj.tm_year, date_obj.tm_mon, date_obj.tm_mday,
-                       date_obj.tm_hour, date_obj.tm_min, date_obj.tm_sec)
+    return datetime2date(date_obj)
 
 
 def seconds2datetime(seconds):

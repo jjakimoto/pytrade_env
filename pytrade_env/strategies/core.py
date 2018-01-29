@@ -26,8 +26,5 @@ class Strategy(object, metaclass=ABCMeta):
         self.symbols = self.bars.symbols
         self.events = events
 
-    def update_fill(self, event):
-        pass
-
     def update_strategy(self):
         pass

@@ -41,8 +41,6 @@ class BaseRunner(object, metaclass=ABCMeta):
         self.data_handler.set_trange(self._start, self._end)
         self.start = self.data_handler.start
         self.end = self.data_handler.end
-        # Initialize bar
-        self.data_handler.update_bars()
         self.portfolio = self.portfolio_cls(self.data_handler, self.events,
                                             self.start, self.initial_capital)
         self.execution_handler = self.execution_handler_cls(self.events)
@@ -75,7 +73,8 @@ class BaseRunner(object, metaclass=ABCMeta):
         pbar = tqdm()
         try:
             while True:
-                if self.data_handler.continue_backtest:
+                if self.data_handler.continue_trading:
+                    self.prev_asset_size = self.portfolio.asset_size
                     self.data_handler.update_bars()
                     self.execute()
                     pbar.update(1)
