@@ -39,6 +39,8 @@ class RLEnv(Runner):
         if self.prev_bars is None:
             self.prev_bars = deepcopy(current_bars)
         returns = current_bars['price'][:, 0] / self.prev_bars['price'][:, 0] - 1.
+        returns = np.minimum(returns, 0.5 * np.ones_like(returns))
+        returns = np.maximum(returns, -0.5 * np.ones_like(returns))
         observation = deepcopy(current_bars)
         trade_amount = np.sum(np.abs(self.current_actions[1:] - self.prev_actions[1:]))
         reward = np.sum(returns * self.current_actions[1:])

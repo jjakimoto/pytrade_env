@@ -20,7 +20,7 @@ class HistoricSQLDataHandler(DataHandler):
 
     def __init__(self, events, symbols,
                  price_keys=['open', 'high', 'low', 'weightedAverage'],
-                 volume_keys=['volume', 'quoteVolume'],):
+                 volume_keys=['volume', 'quoteVolume']):
         """
         Initialises the historic data handler by requesting
         the location of the CSV files and a list of symbols.
@@ -40,7 +40,7 @@ class HistoricSQLDataHandler(DataHandler):
         self.latest_symbol_data = defaultdict(lambda: [])
         self.continue_trading = True
 
-    def set_trange(self, start, end):
+    def set_trange(self, start, end=None):
         data = fetch_data(start, end, self.symbols)
         # Build imputed data with columns key
         self.col_data = defaultdict(lambda: [])
@@ -61,8 +61,11 @@ class HistoricSQLDataHandler(DataHandler):
         # Redefine time range within allowed time index
         start = date2datetime(start)
         self.start = str(max(start, self.allow_time_index[0]))
-        end = date2datetime(end)
-        self.end = str(min(end, self.allow_time_index[-1]))
+        if end is None:
+            self.end = self.allow_time_index[-1]
+        else:
+            end = date2datetime(end)
+            self.end = str(min(end, self.allow_time_index[-1]))
 
         print('start:', self.start)
         print('end:', self.end)
@@ -76,7 +79,8 @@ class HistoricSQLDataHandler(DataHandler):
                 df = self.col_data[col][[symbol]]
                 val.append(df.values)
             self.time_index = df.index
-            val = np.concatenate(val, axis=1)
+            if val:
+                val = np.concatenate(val, axis=1)
             price_data_val.append(np.expand_dims(val, 1))
             price_data[symbol] = pd.DataFrame(val, columns=self.price_keys,
                                               index=self.time_index)
@@ -90,7 +94,8 @@ class HistoricSQLDataHandler(DataHandler):
                 df = self.col_data[col][[symbol]]
                 val.append(df.values)
             self.time_index = df.index
-            val = np.concatenate(val, axis=1)
+            if val:
+                val = np.concatenate(val, axis=1)
             volume_data_val.append(np.expand_dims(val, 1))
             volume_data[symbol] = pd.DataFrame(val, columns=self.volume_keys,
                                                index=self.time_index)
@@ -211,7 +216,7 @@ class HistoricSQLDataHandler(DataHandler):
             self.events.put(MarketEvent())
 
     def update_data(self):
-        new_end = get_time_now()
+        new_end = None
         # _end = datetime2date(self.end)
         data = fetch_data(self.end, new_end, self.symbols)
         if not data:
@@ -234,8 +239,7 @@ class HistoricSQLDataHandler(DataHandler):
         self.allow_time_index = self.allow_time_index.append(df.index)
 
         # Redefine time range within allowed time index
-        new_end = date2datetime(new_end)
-        self.end = str(min(new_end, self.allow_time_index[-1]))
+        self.end = self.allow_time_index[-1]
 
         print('start:', self.start)
         print('end:', self.end)
@@ -249,7 +253,8 @@ class HistoricSQLDataHandler(DataHandler):
                 df = self.col_data[col][[symbol]]
                 val.append(df.values)
             self.time_index = df.index
-            val = np.concatenate(val, axis=1)
+            if val:
+                val = np.concatenate(val, axis=1)
             price_data_val.append(np.expand_dims(val, 1))
             price_data[symbol] = pd.DataFrame(val, columns=self.price_keys,
                                               index=self.time_index)
@@ -263,7 +268,8 @@ class HistoricSQLDataHandler(DataHandler):
                 df = self.col_data[col][[symbol]]
                 val.append(df.values)
             self.time_index = df.index
-            val = np.concatenate(val, axis=1)
+            if val:
+                val = np.concatenate(val, axis=1)
             volume_data_val.append(np.expand_dims(val, 1))
             volume_data[symbol] = pd.DataFrame(val, columns=self.volume_keys,
                                                index=self.time_index)
