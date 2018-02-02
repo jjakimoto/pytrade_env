@@ -17,9 +17,7 @@ class PriceMixin(object):
     open = Column(Float, nullable=True)
     high = Column(Float, nullable=True)
     low = Column(Float, nullable=True)
-    weightedAverage = Column(Float, nullable=True)
     volume = Column(Float, nullable=True)
-    quoteVolume = Column(Float, nullable=True)
 
 
 class Price30M(Base, PriceMixin):

@@ -19,8 +19,8 @@ class HistoricSQLDataHandler(DataHandler):
     """
 
     def __init__(self, events, symbols,
-                 price_keys=['open', 'high', 'low', 'weightedAverage'],
-                 volume_keys=['volume', 'quoteVolume']):
+                 price_keys=['open', 'high', 'low'],
+                 volume_keys=['volume']):
         """
         Initialises the historic data handler by requesting
         the location of the CSV files and a list of symbols.

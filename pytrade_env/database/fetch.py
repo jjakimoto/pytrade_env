@@ -29,19 +29,9 @@ def fetch_data(start, end, tickers):
             high=[x_i.high for x_i in x],
             low=[x_i.low for x_i in x],
             close=[x_i.close for x_i in x],
-            weightedAverage=[x_i.weightedAverage for x_i in x],
-            volume=[x_i.volume for x_i in x],
-            quoteVolume=[x_i.quoteVolume for x_i in x])
+            volume=[x_i.volume for x_i in x])
         df = pd.DataFrame(dict_val, index=timeidx)
         df = df.loc[~df.index.duplicated(keep='first')]
         df.sort_index(inplace=True)
         data[ticker] = df
     return data
-
-
-if __name__ == '__main__':
-    start = '2015-06-01 00:00:00'
-    end = '2017-09-01 00:00:00'
-    tickers = ['USDT_BCH', 'USDT_ZEC']
-    data = fetch(start, end, tickers)
-    print(data)

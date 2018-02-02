@@ -2,40 +2,60 @@ from __future__ import print_function
 
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil import tz
-import time
-from time import mktime
 from copy import deepcopy
 
 
-def datetime2date(datetime_obj):
-    str_time = '%04d-%02d-%02d %02d:%02d:%02d'
-    return str_time % (datetime_obj.tm_year, datetime_obj.tm_mon,
-                       datetime_obj.tm_mday, datetime_obj.tm_hour,
-                       datetime_obj.tm_min, datetime_obj.tm_sec)
+# Start date for calculating seconds
+UNIX_START = datetime(1970, 1, 1)
 
 
-def date2seconds(str_time):
-    datetime_obj = datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
-    seconds = time.mktime(datetime_obj.timetuple())
-    return seconds
-
-
-def seconds2date(seconds):
-    date_obj = time.localtime(seconds)
-    return datetime2date(date_obj)
-
-
-def seconds2datetime(seconds):
-    time_obj = time.localtime(seconds)
-    datetime_obj = datetime.fromtimestamp(mktime(time_obj))
-    return datetime_obj
+symbol_dict = {
+        'USDT_BTC':  'tBTCUSD', 'USDT_BCH':  'tBCHUSD', 'USDT_LTC':  'tLTCUSD',
+        'USDT_ETH':  'tETHUSD', 'USDT_ETC':  'tETCUSD', 'USDT_ZEC':  'tZECUSD',
+        'USDT_XMR':  'tXMRUSD', 'USDT_DASH': 'tDSHUSD', 'USDT_SAN':  'tSANUSD',
+        'USDT_NEO':  'tNEOUSD', 'USDT_IOTA': 'tIOTUSD', 'USDT_OMG':  'tOMGUSD',
+        'USDT_QTUM': 'tQTMUSD', 'USDT_ZRX': 'tZRXUSD', 'USDT_BAT': 'tBATUSD',
+        'USDT_BTG': 'tBTGUSD', 'USDT_SNT': 'tSNTUSD', 'USDT_GNT': 'tGNTUSD',
+        'USDT_FUN': 'tFUNUSD', 'USDT_AVT': 'tAVTUSD', 'USDT_SPANK': 'tSPKUSD',
+        'USDT_EDO': 'tEDOUSD', 'USDT_QASH': 'tQSHUSD', 'USDT_EOS': 'tEOSUSD',
+        'USDT_XRP': 'tXRPUSD'
+    }
 
 
 def date2datetime(str_time):
     datetime_obj = datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
     return datetime_obj
+
+
+def date2seconds(str_time):
+    datetime_obj = date2datetime(str_time)
+    seconds = (datetime_obj - UNIX_START).total_seconds()
+    return seconds
+
+
+def seconds2datetime(seconds):
+    datetime_obj = datetime.fromtimestamp(seconds, timezone.utc)
+    datetime_obj = datetime(datetime_obj.year,
+                            datetime_obj.month,
+                            datetime_obj.day,
+                            datetime_obj.hour,
+                            datetime_obj.minute,
+                            datetime_obj.second)
+    return datetime_obj
+
+
+def seconds2date(seconds):
+    date_obj = seconds2datetime(seconds)
+    return datetime2date(date_obj)
+
+
+def datetime2date(datetime_obj):
+    str_time = '%04d-%02d-%02d %02d:%02d:%02d'
+    return str_time % (datetime_obj.year, datetime_obj.month,
+                       datetime_obj.day, datetime_obj.hour,
+                       datetime_obj.minute, datetime_obj.second)
 
 
 def date2str(date):
@@ -44,7 +64,7 @@ def date2str(date):
     return str_date
 
 
-def get_time_now(is_local=True):
+def get_time_now(is_local=False):
     date = datetime.utcnow()
     if is_local:
         to_zone = tz.tzlocal()
