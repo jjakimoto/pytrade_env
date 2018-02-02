@@ -2,6 +2,8 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
+from urllib.request import urlopen
+import json
 
 from pytrade_env.database.config import URL
 from pytrade_env.database.sql_declarative import Price30M, Base
@@ -41,10 +43,10 @@ def update(ticker, end=None, period="30m"):
 
 
 if __name__ == '__main__':
-    filepath = "/home/tomoaki/work/pytrade_env/pytrade_env/data/ticker1.pkl"
-    file = open(filepath, "rb")
-    tickers = pickle.load(file)
-    pairs = [symbol_dict[pair] for pair in tickers]
+    url = "https://api.kraken.com/0/public/AssetPairs"
+    res = urlopen(url)
+    res = json.loads(res.read())
+    pairs = list(res["result"].keys())
     end = get_time_now(False)
     for pair in tqdm(pairs):
-        update(pair)
+        update(pair, period=30)

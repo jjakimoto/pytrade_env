@@ -21,7 +21,14 @@ symbol_dict = {
         'USDT_FUN': 'tFUNUSD', 'USDT_AVT': 'tAVTUSD', 'USDT_SPANK': 'tSPKUSD',
         'USDT_EDO': 'tEDOUSD', 'USDT_QASH': 'tQSHUSD', 'USDT_EOS': 'tEOSUSD',
         'USDT_XRP': 'tXRPUSD'
-    }
+}
+
+
+symbol_kraken2polo = {
+    'BCHUSD': 'USDT_BCH', 'DASHUSD': 'USDT_DASH', 'XETCZUSD': 'USDT_ETC',
+    'XETHZUSD': 'USDT_ETH', 'XLTCZUSD': 'USDT_LTC', 'XXMRZUSD': 'USDT_XMR',
+    'XXRPZUSD': 'USDT_XRP', 'XZECZUSD': 'USDT_ZEC'
+}
 
 
 def date2datetime(str_time):

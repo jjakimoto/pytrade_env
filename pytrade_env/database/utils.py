@@ -2,8 +2,12 @@ import pandas as pd
 import numpy as np
 from time import sleep
 from tqdm import tqdm
+from urllib.request import urlopen
+import json
+from collections import defaultdict
+from copy import deepcopy
 
-from pytrade_env.utils import date2seconds, seconds2datetime, get_time_now
+from pytrade_env.utils import date2seconds, seconds2datetime, get_time_now, symbol_kraken2polo
 
 
 Time2Seconds = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
@@ -11,15 +15,16 @@ Time2Seconds = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
                 "1D": 3600 * 24, "7D": 3600 * 24 * 7}
 
 
-def get_data(ticker, start, end=None, period="30m", exchange="bitfx"):
+def get_data(ticker, start, end=None, period=30, exchange="kraken"):
     # We do not want to include start time
     start_sc = date2seconds(start) + 1
     if end is None:
         end = get_time_now()
     end_sc = date2seconds(end)
+    print(start_sc, end_sc)
+    print(start, end)
     if exchange == "polo":
         base_url = "https://poloniex.com/public?command=returnChartData&currencyPair=%s&start=%d&end=%d&period=%d"
-
         url = base_url % (ticker, start_sc, end_sc, period)
         df = pd.read_json(url)
     elif exchange == "bitfx":
@@ -29,8 +34,6 @@ def get_data(ticker, start, end=None, period="30m", exchange="bitfx"):
         step = period_sc * limit
         ends_sc = np.arange(end_sc, start_sc, -step)
         dfs = []
-        print(start_sc, end_sc)
-        print(start, end)
         for _end_sc in tqdm(ends_sc):
             _start_sc = max(start_sc, _end_sc - step)
             url = base_url % (period, ticker, int(_start_sc * 1000), int(_end_sc * 1000))
@@ -54,6 +57,46 @@ def get_data(ticker, start, end=None, period="30m", exchange="bitfx"):
             df = pd.concat(dfs)
         else:
             df = pd.DataFrame(dfs)
+    elif exchange == "kraken":
+        base_url = "https://api.kraken.com/0/public/OHLC?pair=%s&interval=%d&since=%s"
+        url = base_url % (ticker, period, start_sc)
+        while True:
+            try:
+                res = urlopen(url)
+                res = json.loads(res.read())
+                data = res["result"][ticker]
+                break
+            except Exception as e:
+                print(e)
+                print(res)
+                if res["error"][0] == 'EService:Unavailable':
+                    print('Failed! Try again')
+                    sleep(6)
+        df = _preprocess_kraken(data)
+        _start_sc = data[0][0]
+        period_sc = period * 60
+        if start_sc <= _start_sc - period_sc and ticker in symbol_kraken2polo:
+            _start_sc -= 1
+            base_url = "https://poloniex.com/public?command=returnChartData&currencyPair=%s&start=%d&end=%d&period=%d"
+            _ticker = symbol_kraken2polo[ticker]
+            url = base_url % (_ticker, start_sc, _start_sc, period_sc)
+            polo_df = pd.read_json(url)
+            # Price
+            ohlc_df = df[["open", "high", "low", "close"]]
+            polo_ohlc_df = polo_df[["open", "high", "low", "close"]]
+            price_ratio = ohlc_df["open"].values[0] / polo_ohlc_df["close"].values[-1]
+            polo_ohlc_df *= price_ratio
+            ohlc_df = pd.concat([polo_ohlc_df, ohlc_df])
+            # Volume
+            volume_df = df[["volume"]]
+            polo_volume_df = polo_df[["volume"]]
+            volume_ratio = volume_df.values[0][0] / polo_volume_df.values[-1][0]
+            polo_volume_df *= volume_ratio
+            volume_df = pd.concat([polo_volume_df, volume_df])
+            # Date
+            date_df = pd.concat([polo_df[["date"]], df[["date"]]])
+            df = pd.concat([date_df, ohlc_df, volume_df], axis=1)
+            df = df.reset_index()
     else:
         raise NotImplementedError()
     return df
@@ -68,4 +111,20 @@ def _preprocess_bitfx(df):
                    low=df[4].values,
                    volume=df[5].values)
     df = pd.DataFrame(df_dict)
+    return df
+
+
+def _preprocess_kraken(data):
+    columns = ["date", "open", "high", "low", "close",
+               "vwap", "volume", "count"]
+    new_data = defaultdict(list)
+    data = deepcopy(data)
+    for x in data:
+        for i, col in enumerate(columns):
+            if i == 0:
+                x[i] = seconds2datetime(x[i])
+            else:
+                x[i] = float(x[i])
+            new_data[col].append(x[i])
+    df = pd.DataFrame(new_data)
     return df
