@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from pytrade_env.database.config import URL
 from pytrade_env.database.sql_declarative import Price30M, Base
-from pytrade_env.database.utils import date2datetime
+from pytrade_env.utils import date2datetime
 
 
 DATA_DIR = "/home/tomoaki/work/Development/cryptocurrency/data"

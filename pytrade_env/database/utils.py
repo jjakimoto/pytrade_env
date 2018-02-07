@@ -6,8 +6,21 @@ from urllib.request import urlopen
 import json
 from collections import defaultdict
 from copy import deepcopy
+from io import BytesIO
+from zipfile import ZipFile
 
-from pytrade_env.utils import date2seconds, seconds2datetime, get_time_now, symbol_kraken2polo
+from pytrade_env.utils import date2seconds, seconds2datetime, get_time_now, symbol_kraken2polo, date2daily
+from pytrade_env.constants import QUANDL_APIKEY
+
+
+stock_columns_map = {
+    'Date': "date",
+    'Adj. Open': "open",
+    'Adj. High': "high",
+    'Adj. Low': "low",
+    'Adj. Close': "close",
+    'Adj. Volume': "volume"
+ }
 
 
 Time2Seconds = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
@@ -21,6 +34,7 @@ def get_data(ticker, start, end=None, period=30, exchange="kraken"):
     if end is None:
         end = get_time_now()
     end_sc = date2seconds(end)
+    print(start_sc, end_sc)
     print(start_sc, end_sc)
     print(start, end)
     if exchange == "polo":
@@ -97,6 +111,25 @@ def get_data(ticker, start, end=None, period=30, exchange="kraken"):
             date_df = pd.concat([polo_df[["date"]], df[["date"]]])
             df = pd.concat([date_df, ohlc_df, volume_df], axis=1)
             df = df.reset_index()
+    elif exchange == "stock":
+        url = "https://www.quandl.com/api/v3/datasets/%s/data.json?api_key=%s" % (ticker, QUANDL_APIKEY)
+        if start is None:
+            start = date2daily(start)
+            url += "start_date=%s" % start
+        if end is None:
+            end = date2daily(end)
+            url += "start_date=%s" % end
+        res = urlopen(url)
+        res = json.loads(res.read())
+        cols = res['dataset_data']['column_names']
+        data = res['dataset_data']['data']
+        data_dict = defaultdict(list)
+        for x in data:
+            for i, col in enumerate(cols):
+                if col in stock_columns_map:
+                    col = stock_columns_map[col]
+                data_dict[col].append(x[i])
+        df = pd.DataFrame(data_dict)
     else:
         raise NotImplementedError()
     return df
@@ -128,3 +161,12 @@ def _preprocess_kraken(data):
             new_data[col].append(x[i])
     df = pd.DataFrame(new_data)
     return df
+
+
+def get_stock_tickers():
+    url = "https://www.quandl.com/api/v3/databases/WIKI/codes.json?api_key=%s" % QUANDL_APIKEY
+    res = urlopen(url)
+    zipfile = ZipFile(BytesIO(res.read()))
+    zipfile.extract(zipfile.namelist()[0])
+    df = pd.read_csv(zipfile.namelist()[0], header=None)
+    return df[0].values

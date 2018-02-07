@@ -31,7 +31,20 @@ symbol_kraken2polo = {
 }
 
 
+def date2daily(str_time):
+    x = datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
+    daily = "%04d-%02d-%02d" % (x.year, x.month, x.day)
+    return daily
+
+
+def daily2date(daily):
+    x = datetime.strptime(daily, "%Y-%m-%d")
+    date = "%04d-%02d-%02d 00:00:00" % (x.year, x.month, x.day)
+    return date
+
+
 def date2datetime(str_time):
+    str_time = str(str_time)
     datetime_obj = datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
     return datetime_obj
 

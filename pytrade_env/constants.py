@@ -1,0 +1,1 @@
+QUANDL_APIKEY = "VBG5xmxqpRXRex_xQ-9Y"

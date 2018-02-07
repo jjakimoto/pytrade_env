@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, Float, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 
-from pytrade_env.database.config import URL
+from pytrade_env.database.config import URL, QUANDL_URL
 
 
 Base = declarative_base()
@@ -25,6 +25,12 @@ class Price30M(Base, PriceMixin):
     timeframe = Column(String(10), default='30M')
 
 
+class StockPriceDay(Base, PriceMixin):
+    __tablename__ = 'StockPriceDay'
+    timeframe = Column(String(10), default='1D')
+
+
 if __name__ == '__main__':
     engine = create_engine(URL)
+    # engine = create_engine(QUANDL_URL)
     Base.metadata.create_all(engine)
