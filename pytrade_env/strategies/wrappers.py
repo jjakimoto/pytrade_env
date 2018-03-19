@@ -21,7 +21,7 @@ class AgentWrapper(Strategy):
         self.prev_actions = deepcopy(self.current_actions)
 
     def calculate_signals(self, event, *args, **kwargs):
-        # Update tmodel before predicting actions
+        # Update model before predicting actions
         self._update_agent()
         if event.type == 'MARKET':
             recent_state = self.agent.get_recent_state()
