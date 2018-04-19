@@ -7,9 +7,6 @@ from pytrade_env.database.sql_declarative import Price30M, Base
 from pytrade_env.utils import date2datetime
 
 
-DATA_DIR = "/home/tomoaki/work/Development/cryptocurrency/data"
-
-
 def fetch_data(start, end, tickers):
     engine = create_engine(URL)
     Base.metadata.bind = engine

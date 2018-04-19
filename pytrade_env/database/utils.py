@@ -8,6 +8,7 @@ from collections import defaultdict
 from copy import deepcopy
 from io import BytesIO
 from zipfile import ZipFile
+import ccxt
 
 from pytrade_env.utils import date2seconds, seconds2datetime, get_time_now, symbol_kraken2polo, date2daily
 from pytrade_env.constants import QUANDL_APIKEY
@@ -28,7 +29,7 @@ Time2Seconds = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
                 "1D": 3600 * 24, "7D": 3600 * 24 * 7}
 
 
-def get_data(ticker, start, end=None, period=30, exchange="kraken"):
+def get_data(ticker, start, end=None, period=30, exchange="polo"):
     # We do not want to include start time
     start_sc = date2seconds(start) + 1
     if end is None:
@@ -163,10 +164,17 @@ def _preprocess_kraken(data):
     return df
 
 
-def get_stock_tickers():
-    url = "https://www.quandl.com/api/v3/databases/WIKI/codes.json?api_key=%s" % QUANDL_APIKEY
-    res = urlopen(url)
-    zipfile = ZipFile(BytesIO(res.read()))
-    zipfile.extract(zipfile.namelist()[0])
-    df = pd.read_csv(zipfile.namelist()[0], header=None)
-    return df[0].values
+def get_symbols(exchange="polo"):
+    if exchange == "polo":
+        polo = ccxt.poloniex()
+        polo.load_markets()
+        return polo.symbols
+    elif exchange == "stock":
+        url = "https://www.quandl.com/api/v3/databases/WIKI/codes.json?api_key=%s" % QUANDL_APIKEY
+        res = urlopen(url)
+        zipfile = ZipFile(BytesIO(res.read()))
+        zipfile.extract(zipfile.namelist()[0])
+        df = pd.read_csv(zipfile.namelist()[0], header=None)
+        return df[0].values
+    else:
+        raise NotImplementedError()
