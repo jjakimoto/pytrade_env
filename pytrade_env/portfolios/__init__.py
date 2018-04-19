@@ -1,2 +1,2 @@
 from .ratio import RatioPortfolio
-from .vanilla import Portfolio
+from .core import Portfolio

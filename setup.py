@@ -8,5 +8,5 @@ setup(name='pytrade_env',
       author_email='f.j.akimoto@gmail.com',
       license='MIT',
       packages=find_packages(),
-      py_modeuls=["pytrade_env", "test_pytrade_env"]
+      py_modeuls=["pytrade_env"]
       )

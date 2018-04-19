@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from pytrade_env.strategies import RandomRatioStrategy
 from pytrade_env.portfolios import RatioPortfolio
-from test_pytrade_env.utils import backtest
+from utils import backtest
 
 
 class TestRandomRatioStrategy(RandomRatioStrategy):
@@ -25,7 +25,7 @@ class TestRatioPortfolio(unittest.TestCase):
         end = '2018-01-15 00:00:00'
         runner = backtest(start, end, strategy=TestRandomRatioStrategy(),
                           portfolio_cls=RatioPortfolio)
-        # Check if rebalance is actually executed
+        # Check if rebalance is executed correctly
         weights_list = runner.weights_list
         for generated_weights, strategy_weights in tqdm(zip(
                 weights_list, runner.strategy.actions_list)):

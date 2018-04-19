@@ -42,7 +42,7 @@ class SimulatedExecutionHandler(ExecutionHandler):
         if event.type == 'ORDER':
             fill_event = FillEvent(timeindex=get_time_now(),
                                    symbol=event.symbol,
-                                   exchange='ARCA',
+                                   exchange='SIMULATION',
                                    quantity=event.quantity,
                                    direction=event.direction,
                                    fill_cost=None,
