@@ -1,7 +1,7 @@
-from .core import BasePortfolio
+from .core import Portfolio
 
 
-class RatioPortfolio(BasePortfolio):
+class RatioPortfolio(Portfolio):
     def get_quantity(self, symbol, value):
         total = self.asset_size
         new_pos = total * value / self.bars.get_latest_market_value(symbol)

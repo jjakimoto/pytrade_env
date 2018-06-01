@@ -23,7 +23,7 @@ class Strategy(object, metaclass=ABCMeta):
 
     def set(self, bars, events):
         self.bars = bars
-        self.symbols = self.bars.symbols
+        self.symbol_list = bars.symbol_list
         self.events = events
 
     def update_strategy(self):

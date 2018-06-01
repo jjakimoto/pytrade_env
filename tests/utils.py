@@ -1,6 +1,4 @@
 from copy import deepcopy
-
-
 import os
 
 from pytrade_env.runners import Runner
@@ -8,15 +6,16 @@ from pytrade_env.runners import Runner
 
 class TestRunner(Runner):
     weights_list = []
+    positions_list = []
 
     def _update_strategy(self):
         self.weights_list.append(deepcopy(self.portfolio.weights_val))
+        self.positions_list.append(deepcopy(self.portfolio.current_positions))
         super()._update_strategy()
 
 
 class Context:
-    price_keys = ['open', 'high', 'low']
-    volume_keys = ['volume', 'quoteVolume']
+    keys = ['open', 'high', 'low', 'volume']
     initial_capital = 1.0
     commission_rate = None
 

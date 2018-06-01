@@ -6,14 +6,13 @@ except ImportError:
     import queue
 import numpy as np
 import pandas as pd
-from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 
 from ..events import OrderEvent
 from ..utils import create_sharpe_ratio, create_drawdowns
 
 
-class BasePortfolio(object, metaclass=ABCMeta):
+class Portfolio(object):
     """
     The Portfolio class handles the positions and market
     value of all instruments at a resolution of a "bar",
@@ -26,7 +25,7 @@ class BasePortfolio(object, metaclass=ABCMeta):
     portfolio total across bars.
     """
 
-    def __init__(self, bars, events, start, initial_capital=1.0):
+    def __init__(self, bars, events, initial_capital=1.0):
         """
         Initialises the portfolio with bars and an event queue.
         Also includes a starting datetime index and initial capital
@@ -40,18 +39,19 @@ class BasePortfolio(object, metaclass=ABCMeta):
 
         self.bars = bars
         self.events = events
-        self.symbols = self.bars.symbols
-        self.start = start
+        self.symbol_list = self.bars.symbol_list
+        self.start = bars.start
         self.initial_capital = initial_capital
 
+        # Position describes the size of each asset like the number of shares
         self.all_positions = self.construct_all_positions()
         self.current_positions = self.construct_current_positions()
-
+        # Holding describes the value of each asset like according to USD
         self.all_holdings = self.construct_all_holdings()
         self.current_holdings = self.construct_current_holdings()
 
     def _initial_positions(self):
-        return dict((s, 0) for s in self.symbols)
+        return dict((s, 0) for s in self.symbol_list)
 
     def construct_all_positions(self):
         """
@@ -100,28 +100,26 @@ class BasePortfolio(object, metaclass=ABCMeta):
         current market data at this stage is known (OHLCV).
         Makes use of a MarketEvent from the events queue.
         """
-        latest_datetime = self.bars.get_latest_bar_datetime(self.symbols[0])
+        latest_datetime = self.bars.get_latest_bar_datetime(self.symbol_list[0])
 
         # Update positions
-        # ================
         dp = self._initial_positions()
         dp['datetime'] = latest_datetime
 
-        for s in self.symbols:
+        for s in self.symbol_list:
             dp[s] = self.current_positions[s]
 
         # Append the current positions
         self.all_positions.append(dp)
 
-        # Update holdings
-        # ===============
+        # Update holding
         dh = {}
         dh['datetime'] = latest_datetime
         dh['cash'] = self.current_holdings['cash']
         dh['commission'] = self.current_holdings['commission']
         dh['total'] = self.current_holdings['cash']
 
-        for symbol in self.symbols:
+        for symbol in self.symbol_list:
             # Approximation to the real value
             market_value = self.current_positions[symbol] * \
                 self.bars.get_latest_market_value(symbol)
@@ -202,7 +200,7 @@ class BasePortfolio(object, metaclass=ABCMeta):
         mkt_quantity = np.abs(mkt_quantity)
         direction = signal.signal_type
         cur_quantity = self.current_positions[symbol]
-        order_type = 'MKT'
+        order_type = 'MARKET'
         if direction == 'LONG':
             order = OrderEvent(symbol, order_type, mkt_quantity, 'BUY')
         if direction == 'SHORT':
@@ -212,6 +210,9 @@ class BasePortfolio(object, metaclass=ABCMeta):
         if direction == 'EXIT' and cur_quantity < 0:
             order = OrderEvent(symbol, order_type, abs(cur_quantity), 'BUY')
         return order
+
+    def get_quantity(self, symbol, value):
+        return value
 
     def update_signal(self, event):
         """
@@ -283,7 +284,7 @@ class BasePortfolio(object, metaclass=ABCMeta):
     def weights_val(self):
         weights = self.weights
         weights_val = [weights["cash"]]
-        for symbol in self.symbols:
+        for symbol in self.symbol_list:
             weights_val.append(weights[symbol])
         return np.array(weights_val)
 
@@ -291,16 +292,10 @@ class BasePortfolio(object, metaclass=ABCMeta):
     def portfolio_values(self):
         portfolio_values = {}
         portfolio_values['cash'] = self.current_holdings['cash']
-        for symbol in self.symbols:
+        for symbol in self.symbol_list:
             portfolio_values[symbol] = self.current_holdings[symbol]
         return portfolio_values
 
     @property
     def asset_size(self):
         return np.sum(list(self.portfolio_values.values()))
-
-    @abstractmethod
-    def get_quantity(self, symbol, value):
-        # You have to implement this method to determine how to treat outputs
-        # of your model.
-        raise NotImplementedError()

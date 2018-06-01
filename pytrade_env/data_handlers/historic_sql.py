@@ -12,36 +12,33 @@ from ..utils import date2datetime, datetime2date, get_time_now
 
 class HistoricSQLDataHandler(DataHandler):
     """
-    HistoricCSVDataHandler is designed to read CSV files for
-    each requested symbol from disk and provide an interface
-    to obtain the "latest" bar in a manner identical to a live
-    trading interface.
+    DataHanderl to interact with SQL historical database
+
+    Parameters
+    ----
+    events: Queue, Event queue
+    symbol_list: list(str)
+    start: str
+        yyyy:mm:dd hh-mm-ss format
+    end: str, Optional
+    keys: list(str),
+        column names used by handler. Need to put a key used for market value
+        as the first element.
     """
 
-    def __init__(self, events, symbols,
-                 price_keys=['open', 'high', 'low'],
-                 volume_keys=['volume']):
-        """
-        Initialises the historic data handler by requesting
-        the location of the CSV files and a list of symbols.
-        It will be assumed that all files are of the form
-        ’symbol.csv’, where symbol is a string in the list.
-        Parameters:
-        events - The Event Queue.
-        csv_dir - Absolute directory path to the CSV files.
-        symbols - A list of symbol strings.
-        """
-
+    def __init__(self, events, symbol_list,
+                 keys=['open', 'high', 'low', 'volume']):
         self.events = events
-        self.symbols = symbols
-        self.price_keys = price_keys
-        self.market_value_key = self.price_keys[0]
-        self.volume_keys = volume_keys
+        self.symbol_list = symbol_list
+        self.keys = keys
+        self.market_value_key = self.keys[0]
+        self.symbol_data = dict()
         self.latest_symbol_data = defaultdict(lambda: [])
         self.continue_trading = True
 
     def set_trange(self, start, end=None):
-        data = fetch_data(start, end, self.symbols)
+        """You have to initialize function before using"""
+        data = fetch_data(start, end, self.symbol_list_list)
         # Build imputed data with columns key
         self.col_data = defaultdict(lambda: [])
         for symbol, val in data.items():
@@ -51,7 +48,7 @@ class HistoricSQLDataHandler(DataHandler):
             for col in val.columns:
                 self.col_data[col].append(df[col])
         for col in self.col_data.keys():
-            df = pd.concat(self.col_data[col], axis=1, keys=self.symbols)
+            df = pd.concat(self.col_data[col], axis=1, keys=self.symbol_list)
             df.interpolate(method='linear',
                            limit_direction='both',
                            inplace=True)
@@ -71,41 +68,23 @@ class HistoricSQLDataHandler(DataHandler):
         print('end:', self.end)
 
         # Store imputed data with symbol keys
-        price_data = {}
-        price_data_val = []
-        for symbol in self.symbols:
+        data_array = []
+        for symbol in self.symbol_list:
             val = []
-            for col in self.price_keys:
+            for col in self.keys:
                 df = self.col_data[col][[symbol]]
                 val.append(df.values)
             self.time_index = df.index
             if val:
                 val = np.concatenate(val, axis=1)
-            price_data_val.append(np.expand_dims(val, 1))
-            price_data[symbol] = pd.DataFrame(val, columns=self.price_keys,
-                                              index=self.time_index)
+            data_array.append(np.expand_dims(val, 1))
+            self.symbol_data[symbol] = pd.DataFrame(val,
+                                                    columns=self.keys,
+                                                    index=self.time_index)
 
-        # Store imputed data with symbol keys
-        volume_data = {}
-        volume_data_val = []
-        for symbol in self.symbols:
-            val = []
-            for col in self.volume_keys:
-                df = self.col_data[col][[symbol]]
-                val.append(df.values)
-            self.time_index = df.index
-            if val:
-                val = np.concatenate(val, axis=1)
-            volume_data_val.append(np.expand_dims(val, 1))
-            volume_data[symbol] = pd.DataFrame(val, columns=self.volume_keys,
-                                               index=self.time_index)
-
-        self.price_data = price_data
-        self.price_data_val = np.concatenate(price_data_val, axis=1)
-        self.volume_data = volume_data
-        self.volume_data_val = np.concatenate(volume_data_val, axis=1)
+        self.data_array = np.concatenate(data_array, axis=1)
         # Idx for fetching new bar
-        self.idxes = dict((symbol, 0) for symbol in self.symbols)
+        self.idxes = dict((symbol, 0) for symbol in self.symbol_list)
         self.max_idx = len(self.time_index) - 1
 
     def _get_new_bar(self, symbol):
@@ -114,12 +93,11 @@ class HistoricSQLDataHandler(DataHandler):
         """
         idx = self.idxes[symbol]
         if idx <= self.max_idx:
-            price = self.price_data[symbol].iloc[idx]
-            volume = self.volume_data[symbol].iloc[idx]
+            data = self.symbol_data[symbol].iloc[idx]
             time = self.time_index[idx]
             # Update index
             self.idxes[symbol] += 1
-            return dict(time=time, price=price, volume=volume)
+            return dict(time=time, data=data)
         else:
             raise StopIteration()
 
@@ -133,7 +111,7 @@ class HistoricSQLDataHandler(DataHandler):
             print("That symbol is not available in the historical data set.")
             raise
         else:
-            return bars_list[-1]
+            return bars_list[-1]["data"]
 
     def get_latest_bars(self, symbol, N=1):
         """
@@ -146,14 +124,14 @@ class HistoricSQLDataHandler(DataHandler):
             print("That symbol is not available in the historical data set.")
             raise
         else:
-            return bars_list[-N:]
+            return bars_list[-N:]["data"]
 
     def get_latest_bar_datetime(self, symbol=None):
         """
         Returns a Python datetime object for the last bar.
         """
         if symbol is None:
-            symbol = self.symbols[0]
+            symbol = self.symbol_list[0]
         try:
             bars_list = self.latest_symbol_data[symbol]
         except KeyError:
@@ -173,10 +151,8 @@ class HistoricSQLDataHandler(DataHandler):
             print("That symbol is not available in the historical data set.")
             raise
         else:
-            if val_type in self.price_keys:
-                return getattr(bars_list[-1]['price'], val_type)
-            elif val_type in self.volume_keys:
-                return getattr(bars_list[-1]['volume'], val_type)
+            if val_type in self.keys:
+                return getattr(bars_list[-1]["data"], val_type)
             else:
                 raise NotImplementedError("No implementation for val_type={}".format(val_type))
 
@@ -191,10 +167,8 @@ class HistoricSQLDataHandler(DataHandler):
             print("That symbol is not available in the historical data set.")
             raise
         else:
-            if val_type in self.price_keys:
-                return np.array([getattr(b['price'], val_type) for b in bars_list])
-            elif val_type in self.volume_keys:
-                return np.array([getattr(b['volume'], val_type) for b in bars_list])
+            if val_type in self.keys:
+                return np.array([getattr(b["data"], val_type) for b in bars_list])
             else:
                 raise NotImplementedError("No implementation for val_type={}".format(val_type))
 
@@ -203,7 +177,7 @@ class HistoricSQLDataHandler(DataHandler):
         Pushes the latest bar to the latest_symbol_data structure
         for all symbols in the symbol list.
         """
-        for s in self.symbols:
+        for s in self.symbol_list:
             try:
                 bar = self._get_new_bar(s)
             except StopIteration:
@@ -211,116 +185,11 @@ class HistoricSQLDataHandler(DataHandler):
                 bar = None
             else:
                 if bar is not None:
-                    self.latest_symbol_data[s].append(bar)
-        if not is_initial:
+                    self.latest_symbol_data[s].append(bar["data"])
             self.events.put(MarketEvent())
-
-    def update_data(self):
-        new_end = None
-        # _end = datetime2date(self.end)
-        data = fetch_data(self.end, new_end, self.symbols)
-        if not data:
-            return None
-        # Build imputed data with columns key
-        _col_data = defaultdict(lambda: [])
-        for symbol, val in data.items():
-            df = pd.DataFrame(val.values,
-                              index=val.index, columns=val.columns)
-            df = df.loc[~df.index.duplicated(keep='first')]
-            for col in val.columns:
-                _col_data[col].append(df[col])
-        for col in _col_data.keys():
-            df = pd.concat(_col_data[col], axis=1, keys=self.symbols)
-            df.interpolate(method='linear',
-                           limit_direction='both',
-                           inplace=True)
-            self.col_data[col] = self.col_data[col].append(df)
-        self.df = df
-        self.allow_time_index = self.allow_time_index.append(df.index)
-
-        # Redefine time range within allowed time index
-        self.end = self.allow_time_index[-1]
-
-        print('start:', self.start)
-        print('end:', self.end)
-
-        # Store imputed data with symbol keys
-        price_data = {}
-        price_data_val = []
-        for symbol in self.symbols:
-            val = []
-            for col in self.price_keys:
-                df = self.col_data[col][[symbol]]
-                val.append(df.values)
-            self.time_index = df.index
-            if val:
-                val = np.concatenate(val, axis=1)
-            price_data_val.append(np.expand_dims(val, 1))
-            price_data[symbol] = pd.DataFrame(val, columns=self.price_keys,
-                                              index=self.time_index)
-
-        # Store imputed data with symbol keys
-        volume_data = {}
-        volume_data_val = []
-        for symbol in self.symbols:
-            val = []
-            for col in self.volume_keys:
-                df = self.col_data[col][[symbol]]
-                val.append(df.values)
-            self.time_index = df.index
-            if val:
-                val = np.concatenate(val, axis=1)
-            volume_data_val.append(np.expand_dims(val, 1))
-            volume_data[symbol] = pd.DataFrame(val, columns=self.volume_keys,
-                                               index=self.time_index)
-
-        self.price_data = price_data
-        self.price_data_val = np.concatenate(price_data_val, axis=1)
-        self.volume_data = volume_data
-        self.volume_data_val = np.concatenate(volume_data_val, axis=1)
-        self.max_idx = len(self.time_index) - 1
-        self.continue_trading = True
 
     def get_latest_market_value(self, symbol):
         return self.get_latest_bar_value(symbol, self.market_value_key)
 
     def get_latest_market_values(self, symbol, N=1):
         return self.get_latest_bars_values(symbol, self.market_value_key, N=N)
-
-    def _get_current_price_array(self):
-        current_prices = []
-        for symbol in self.symbols:
-            price = self.get_latest_bar(symbol)['price'].values
-            current_prices.append(price)
-        return np.array(current_prices)
-
-    def _get_current_volume_array(self):
-        current_volumes = []
-        for symbol in self.symbols:
-            volume = self.get_latest_bar(symbol)['volume'].values
-            current_volumes.append(volume)
-        return np.array(current_volumes)
-
-    def get_current_bars(self):
-        price = self._get_current_price_array()
-        volume = self._get_current_volume_array()
-        return dict(price=price, volume=volume)
-
-    def _get_prev_price_array(self):
-        prev_prices = []
-        for symbol in self.symbols:
-            price = self.get_latest_bars(symbol, 2)[0]['price'].values
-            prev_prices.append(price)
-        return np.array(prev_prices)
-
-    def _get_prev_volume_array(self):
-        prev_volumes = []
-        for symbol in self.symbols:
-            volume = self.get_latest_bars(symbol, 2)[0]['volume'].values
-            prev_volumes.append(volume)
-        return np.array(prev_volumes)
-
-    def get_prev_bars(self):
-        price = self._get_prev_price_array()
-        volume = self._get_prev_volume_array()
-        return dict(price=price, volume=volume)

@@ -1,4 +1,4 @@
-try:
+ try:
     import Queue as queue
 except ImportError:
     import queue
@@ -7,15 +7,14 @@ from tqdm import tqdm
 
 
 class BaseRunner(object, metaclass=ABCMeta):
-    def __init__(self, strategy, symbols, context, data_handler_cls,
+    def __init__(self, strategy, symbol_list, context, data_handler_cls,
                  execution_handler_cls, portfolio_cls):
-        self.symbols = symbols
+        self.symbol_list = symbol_list
         self.strategy = strategy
+        self.context = context
+        self.keys = context.keys
         self.initial_capital = context.initial_capital
         self.commission_rate = context.commission_rate
-        self.context = context
-        self.price_keys = context.price_keys
-        self.volume_keys = context.volume_keys
         self.data_handler_cls = data_handler_cls
         self.execution_handler_cls = execution_handler_cls
         self.portfolio_cls = portfolio_cls
@@ -35,9 +34,9 @@ class BaseRunner(object, metaclass=ABCMeta):
     def _generate_instances(self):
         # The count number of each event instances
         self.events = queue.Queue()
-        self.data_handler = self.data_handler_cls(self.events, self.symbols,
-                                                  self.context.price_keys,
-                                                  self.context.volume_keys)
+        self.data_handler = self.data_handler_cls(self.events,
+                                                  self.symbol_list,
+                                                  self.keys)
         self.data_handler.set_trange(self._start, self._end)
         self.start = self.data_handler.start
         self.end = self.data_handler.end
